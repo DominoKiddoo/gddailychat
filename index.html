@@ -4,26 +4,23 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GD Daily Chat (Live)</title>
-  <link rel="icon" href="favicon.ico" type="image/x-icon">
-
+  <link rel="icon" href="favicon.ico" type="image/x-icon" />
   <style>
     @font-face {
-      font-family: 'PUSAB';
-      src: url('PUSAB.otf') format('opentype');
+      font-family: "PUSAB";
+      src: url("PUSAB.otf") format("opentype");
     }
-
     body {
-      font-family: 'PUSAB', sans-serif;
+      font-family: "PUSAB", sans-serif;
       margin: 20px;
       background: #121212;
       color: #eee;
       letter-spacing: 0.9px;
     }
-
     button {
       padding: 8px;
       font-size: 16px;
-      font-family: 'PUSAB', sans-serif;
+      font-family: "PUSAB", sans-serif;
       margin-bottom: 12px;
       border-radius: 4px;
       border: none;
@@ -41,7 +38,8 @@
       font-weight: bold;
       color: #1db954;
     }
-    .likes, .percent {
+    .likes,
+    .percent {
       font-size: 0.9em;
       color: #bbb;
     }
@@ -54,15 +52,45 @@
       font-weight: bold;
       color: #00ff229c;
     }
+
+    /* Music toggle button bottom-left */
+    #musicToggle {
+      position: fixed;
+      bottom: 15px;
+      left: 15px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      background-color: #1db954;
+      color: #121212;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+      font-family: "PUSAB", sans-serif;
+      z-index: 9999;
+    }
   </style>
 </head>
 <body>
-  <img src="Title.png" alt="GD Daily Chat" style="width: 500px; height: auto;">
+  <img src="Title.png" alt="GD Daily Chat" style="width: 500px; height: auto" />
   <p style="color: grey;">By DominoKiddoo</p>
   <button id="refreshBtn">Manual Refresh</button>
   <div id="levelName">Loading daily level...</div>
+
+  <!-- Hidden audio player -->
+  <audio id="dailySong" style="display:none;"></audio>
+
   <div id="comments">Loading comments...</div>
-  <button style="position: fixed; top: 10px; right: 10px;" onclick="location.href='credits.html'">Site Credits</button>
+
+  <button
+    style="position: fixed; top: 10px; right: 10px"
+    onclick="location.href='credits.html'"
+  >
+    Site Credits
+  </button>
+
+  <!-- Music toggle button -->
+  <button id="musicToggle">🎵 Music: On</button>
 
   <script>
     let intervalId;
@@ -70,11 +98,24 @@
 
     async function fetchDailyLevel() {
       try {
-        const res = await fetch('https://gdbrowser.com/api/search/-?type=daily');
-        if (!res.ok) throw new Error('Failed to fetch daily levels');
+        const res = await fetch(
+          "https://gdbrowser.com/api/search/-?type=daily"
+        );
+        if (!res.ok) throw new Error("Failed to fetch daily levels");
         const dailyLevels = await res.json();
-        if (!dailyLevels.length) throw new Error('No daily levels found');
+        if (!dailyLevels.length) throw new Error("No daily levels found");
         return dailyLevels[0]; // Get the first daily level
+      } catch (e) {
+        console.error(e);
+        return null;
+      }
+    }
+
+    async function fetchLevelDetails(levelID) {
+      try {
+        const res = await fetch(`https://gdbrowser.com/api/level/${levelID}`);
+        if (!res.ok) throw new Error("Failed to fetch level details");
+        return await res.json();
       } catch (e) {
         console.error(e);
         return null;
@@ -83,30 +124,41 @@
 
     async function fetchComments(levelID) {
       try {
-        const response = await fetch(`https://gdbrowser.com/api/comments/${levelID}`);
-        if (!response.ok) throw new Error('Failed to fetch comments');
+        const response = await fetch(
+          `https://gdbrowser.com/api/comments/${levelID}`
+        );
+        if (!response.ok) throw new Error("Failed to fetch comments");
 
         const comments = await response.json();
         if (!comments.length) {
-          document.getElementById('comments').innerHTML = 'No comments found.';
+          document.getElementById("comments").innerHTML = "No comments found.";
           return;
         }
 
-        const html = comments.map(c => `
+        const html = comments
+          .map(
+            (c) => `
           <div class="comment">
-            <div><span class="username">${c.username || 'Unknown'}</span> ${c.moderator ? '⭐' : ''}</div>
+            <div><span class="username">${c.username || "Unknown"}</span> ${
+              c.moderator ? "⭐" : ""
+            }</div>
             <div>${c.content}</div>
             <div>
               <span class="likes">👍 ${c.likes}</span> &nbsp;
-              ${c.percent ? `<span class="percent">💯 ${c.percent}%</span>` : ''}
+              ${
+                c.percent
+                  ? `<span class="percent">💯 ${c.percent}%</span>`
+                  : ""
+              }
             </div>
-            <small>${c.date || ''}</small>
+            <small>${c.date || ""}</small>
           </div>
-        `).join('');
+        `
+          )
+          .join("");
 
-        // Update comments only if changed
-        if (document.getElementById('comments').innerHTML !== html) {
-          document.getElementById('comments').innerHTML = html;
+        if (document.getElementById("comments").innerHTML !== html) {
+          document.getElementById("comments").innerHTML = html;
         }
       } catch (e) {
         console.error(e);
@@ -114,17 +166,34 @@
     }
 
     async function updateDailyComments() {
-      if (!currentDailyID) {        // Fetch the daily level info first
-
+      if (!currentDailyID) {
         const dailyLevel = await fetchDailyLevel();
         if (!dailyLevel) {
-          document.getElementById('levelName').textContent = 'Failed to load daily level.';
-          document.getElementById('comments').textContent = '';
+          document.getElementById("levelName").textContent =
+            "Failed to load daily level.";
+          document.getElementById("comments").textContent = "";
           return;
         }
+
         currentDailyID = dailyLevel.id;
-        document.getElementById('levelName').textContent = `Daily Level: ${dailyLevel.name} by ${dailyLevel.author}`;
+        document.getElementById(
+          "levelName"
+        ).textContent = `Daily Level: ${dailyLevel.name} by ${dailyLevel.author}`;
+
+        const levelDetails = await fetchLevelDetails(currentDailyID);
+
+        if (levelDetails && levelDetails.songLink) {
+          audio.src = levelDetails.songLink;
+          audio.style.display = "none";
+          audio.play().catch(() => {
+            console.warn("Autoplay blocked — user must click Play.");
+          });
+        } else {
+          audio.style.display = "none";
+          audio.src = "";
+        }
       }
+
       await fetchComments(currentDailyID);
     }
 
@@ -134,10 +203,44 @@
       intervalId = setInterval(updateDailyComments, 1000);
     }
 
-    document.getElementById('refreshBtn').addEventListener('click', () => {
+    document.getElementById("refreshBtn").addEventListener("click", () => {
       currentDailyID = null; // Reset to fetch latest daily level
       startAutoUpdate();
     });
+
+    // Audio element & music toggle button logic
+    const audio = document.getElementById("dailySong");
+    const musicToggle = document.getElementById("musicToggle");
+
+    audio.volume = 0.65;
+    audio.muted = true;
+    audio.loop = true;
+    audio.pause();
+
+    let musicIsOn = false;
+
+    musicToggle.textContent = "🔇 Music: Off";
+
+    musicToggle.addEventListener("click", async () => {
+      if (!musicIsOn) {
+        // Turn music ON
+        audio.muted = false;
+        try {
+          await audio.play();
+          musicIsOn = true;
+          musicToggle.textContent = "🎵 Music: On";
+        } catch (e) {
+          console.warn("Playback failed:", e);
+        }
+      } else {
+        // Turn music OFF
+        audio.pause();
+        musicIsOn = false;
+        musicToggle.textContent = "🔇 Music: Off";
+      }
+    });
+
+
 
     // Start immediately on page load
     startAutoUpdate();
